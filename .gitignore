@@ -30,15 +30,18 @@ mindmate_env/
 .env
 .env.local
 *.env
+.env.example
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
 
 # Logs
 logs/
 *.log
+*.log.*
 
 # IDE
 .vscode/
@@ -51,7 +54,19 @@ logs/
 .DS_Store
 Thumbs.db
 
-# Large ML models
+# NLTK data (будет загружено при сборке)
+nltk_data/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Render
+render.yaml.local
+
+# ML Models
 *.pth
 *.pt
 *.h5
