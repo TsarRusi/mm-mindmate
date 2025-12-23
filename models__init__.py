@@ -1,4 +1,7 @@
-# Инициализация моделей
-from .user import User, MoodLog, ChatSession, Exercise
+"""
+Модули моделей данных для MindMate Bot
+"""
 
-__all__ = ['User', 'MoodLog', 'ChatSession', 'Exercise']
+from models.user import User, MoodLog, ChatHistory
+
+__all__ = ['User', 'MoodLog', 'ChatHistory']
