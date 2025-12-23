@@ -1,23 +1,17 @@
-from .main import (
-    get_main_menu,
+"""
+Модуль клавиатур для Telegram бота
+"""
+
+from keyboards.main import (
+    get_main_keyboard,
     get_mood_keyboard,
-    get_ai_chat_menu,
-    get_exercises_menu,
-    get_settings_menu,
-    get_statistics_menu,
-    get_crisis_help_keyboard,
-    get_confirmation_keyboard,
-    get_back_keyboard
+    get_exercises_keyboard,
+    get_settings_keyboard
 )
 
 __all__ = [
-    'get_main_menu',
-    'get_mood_keyboard',
-    'get_ai_chat_menu',
-    'get_exercises_menu',
-    'get_settings_menu',
-    'get_statistics_menu',
-    'get_crisis_help_keyboard',
-    'get_confirmation_keyboard',
-    'get_back_keyboard'
+    'get_main_keyboard',
+    'get_mood_keyboard', 
+    'get_exercises_keyboard',
+    'get_settings_keyboard'
 ]
