@@ -32,6 +32,8 @@ try:
     from config import settings
     from database import db_manager
     from message_handlers import handlers
+    from nlp_analyzer import nlp_analyzer
+    from deepseek_chat import deepseek_chat
 except ImportError as e:
     logger.error(f"Ошибка импорта: {e}")
     logger.error("Проверьте наличие всех файлов")
@@ -42,6 +44,7 @@ class MindMateBotRender:
     
     def __init__(self):
         self.application = None
+        self.is_running = False
         
     async def on_startup(self, app):
         """Запуск при старте"""
@@ -59,43 +62,39 @@ class MindMateBotRender:
         except Exception as e:
             logger.error(f"❌ Ошибка БД: {e}")
             # Продолжаем работу, даже если БД не работает
+        
+        # Проверка DeepSeek
+        if deepseek_chat.is_available():
+            logger.info("✅ DeepSeek API доступен")
+        else:
+            logger.warning("⚠️ DeepSeek API недоступен (функция чата будет ограничена)")
+        
+        self.is_running = True
+        logger.info("✅ Бот успешно запущен")
     
     async def on_shutdown(self, app):
         """Остановка бота"""
         logger.info("🛑 MindMate Bot останавливается...")
+        self.is_running = False
     
     def setup_handlers(self):
-        """Настройка обработчиков (упрощенная версия)"""
+        """Настройка обработчиков"""
         
         # Базовые команды
         self.application.add_handler(CommandHandler("start", handlers.start))
         self.application.add_handler(CommandHandler("help", handlers.show_help))
         self.application.add_handler(CommandHandler("crisis", handlers.handle_crisis_situation))
+        self.application.add_handler(CommandHandler("stats", handlers.show_stats))
+        self.application.add_handler(CommandHandler("mood", handlers.log_mood_command))
         
-        # Основное меню
-        from telegram import ReplyKeyboardMarkup
-        
-        async def handle_main_menu(update, context):
-            keyboard = [
-                ["📊 Настроение", "💬 Чат с ИИ"],
-                ["🧘 Упражнения", "📈 Статистика"],
-                ["⚙️ Настройки", "❓ Помощь"]
-            ]
-            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-            await update.message.reply_text(
-                "Главное меню MindMate:",
-                reply_markup=reply_markup
-            )
-        
-        self.application.add_handler(MessageHandler(
-            filters.Regex("^(📊 Настроение|💬 Чат с ИИ|🧘 Упражнения|📈 Статистика|⚙️ Настройки|❓ Помощь)$"),
-            handle_main_menu
-        ))
+        # Чат с ИИ
+        self.application.add_handler(CommandHandler("chat", handlers.start_chat))
+        self.application.add_handler(CommandHandler("ai", handlers.start_chat))
         
         # Обработка текстовых сообщений
         self.application.add_handler(MessageHandler(
             filters.TEXT & ~filters.COMMAND,
-            handlers.handle_unknown
+            handlers.handle_text_message
         ))
         
         logger.info("✅ Обработчики настроены")
@@ -112,13 +111,6 @@ class MindMateBotRender:
                 logger.error("Render Dashboard -> Your Service -> Environment")
                 sys.exit(1)
             
-            # Проверяем наличие ключа DeepSeek (опционально)
-            DEEPSEEK_KEY = os.environ.get('DEEPSEEK_API_KEY')
-            if DEEPSEEK_KEY:
-                logger.info("✅ DeepSeek API ключ найден")
-            else:
-                logger.warning("⚠️ DeepSeek API ключ не найден (функция чата будет ограничена)")
-            
             # Создаем Application
             self.application = Application.builder() \
                 .token(TOKEN) \
@@ -132,6 +124,12 @@ class MindMateBotRender:
             # Обработчик ошибок
             async def error_handler(update, context):
                 logger.error(f"Ошибка: {context.error}", exc_info=True)
+                try:
+                    await update.message.reply_text(
+                        "❌ Произошла ошибка при обработке сообщения. Попробуйте еще раз."
+                    )
+                except:
+                    pass
             
             self.application.add_error_handler(error_handler)
             
@@ -145,9 +143,12 @@ class MindMateBotRender:
                 timeout=30,
                 read_timeout=30,
                 connect_timeout=30,
-                pool_timeout=30
+                pool_timeout=30,
+                close_loop=False  # Важно для Render!
             )
             
+        except KeyboardInterrupt:
+            logger.info("🛑 Остановка по запросу пользователя")
         except NetworkError as e:
             logger.error(f"❌ Ошибка сети: {e}")
         except TelegramError as e:
@@ -158,14 +159,14 @@ class MindMateBotRender:
 
 def main():
     """Точка входа"""
-    bot = MindMateBotRender()
-    bot.run()
-
-if __name__ == "__main__":
     # Проверяем, что мы на Render
     if os.environ.get('RENDER'):
         logger.info("🌐 Среда: Render.com")
     else:
         logger.info("💻 Среда: Локальная разработка")
     
+    bot = MindMateBotRender()
+    bot.run()
+
+if __name__ == "__main__":
     main()
