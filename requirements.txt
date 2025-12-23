@@ -11,7 +11,7 @@ alembic==1.13.1
 # === DEEPSEEK API ===
 requests==2.31.0
 aiohttp==3.9.1
-httpx==0.26.0
+httpx>=0.25.2  # ИЗМЕНЕНО: совместимость с python-telegram-bot
 
 # === УТИЛИТЫ ===
 emoji==2.10.0
@@ -26,7 +26,3 @@ nltk==3.8.1
 
 # === ДЕПЛОЙ ===
 gunicorn==21.2.0
-
-# === ОПЦИОНАЛЬНО: легкий torch если нужно ===
-# torch==2.9.0 --index-url https://download.pytorch.org/whl/cpu
-# transformers==4.36.2
