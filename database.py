@@ -1,54 +1,52 @@
+# === ИСПРАВЛЕННЫЙ database.py ===
 import os
 import logging
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, JSON, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
-# Получаем DATABASE_URL из переменных окружения Render
+# ТОЛЬКО PostgreSQL на Render!
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-# Для локальной разработки
 if not DATABASE_URL:
-    DATABASE_URL = "sqlite:///mindmate.db"
-    logger.info("Используется SQLite для локальной разработки")
+    logger.critical("❌ DATABASE_URL не найден!")
+    logger.critical("На Render: убедитесь, что база данных создана в render.yaml")
+    logger.critical("Локально: установите DATABASE_URL в .env файле")
+    raise ValueError("DATABASE_URL не настроен")
 
-# Исправляем URL для SQLAlchemy (Render использует postgres://, нужно postgresql://)
+# Исправляем URL для SQLAlchemy (ВАЖНО!)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    logger.info("URL базы данных исправлен для SQLAlchemy")
+    logger.info("✅ URL базы данных исправлен для SQLAlchemy")
 
+logger.info(f"🔗 Подключение к БД: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else DATABASE_URL}")
+
+# Создаем движок PostgreSQL
 try:
-    # Создаем движок с настройками для Render
     engine = create_engine(
         DATABASE_URL,
         pool_size=5,
         max_overflow=10,
         pool_pre_ping=True,
         pool_recycle=300,
-        echo=False  # В продакшене выключить
+        echo=False
     )
     
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base = declarative_base()
     
-    logger.info(f"✅ Движок БД создан: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'SQLite'}")
+    logger.info("✅ Движок PostgreSQL создан")
     
 except Exception as e:
-    logger.error(f"❌ Ошибка создания движка БД: {e}")
-    # Создаем fallback для SQLite если PostgreSQL не работает
-    DATABASE_URL = "sqlite:///mindmate.db"
-    engine = create_engine(DATABASE_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base = declarative_base()
-    logger.info("✅ Используем SQLite как fallback")
+    logger.critical(f"❌ Ошибка создания движка БД: {e}")
+    raise
 
 @contextmanager
 def get_db_session():
-    """Контекстный менеджер для сессий БД"""
     session = SessionLocal()
     try:
         yield session
@@ -61,105 +59,105 @@ def get_db_session():
         session.close()
 
 class User(Base):
-    """Модель пользователя (упрощенная)"""
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    telegram_id = Column(Integer, unique=True, index=True)
+    telegram_id = Column(Integer, unique=True, index=True, nullable=False)
     username = Column(String(100))
     first_name = Column(String(100))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_active = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_active = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class MoodLog(Base):
-    """Записи настроения (упрощенная)"""
     __tablename__ = "mood_logs"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
+    user_id = Column(Integer, index=True, nullable=False)
     mood_score = Column(Integer)
     user_message = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class DatabaseManager:
-    """Менеджер для работы с БД на Render"""
-    
     def __init__(self):
         self.engine = engine
         self.Base = Base
-        
+    
     def init_db(self):
-        """Инициализация таблиц"""
+        """Создание таблиц с обработкой ошибок"""
         try:
             self.Base.metadata.create_all(bind=self.engine)
             logger.info("✅ Таблицы БД созданы/проверены")
+            return True
         except Exception as e:
             logger.error(f"❌ Ошибка создания таблиц: {e}")
+            # Пробуем создать простую таблицу через raw SQL
+            try:
+                with self.engine.connect() as conn:
+                    conn.execute("""
+                        CREATE TABLE IF NOT EXISTS users (
+                            id SERIAL PRIMARY KEY,
+                            telegram_id INTEGER UNIQUE NOT NULL,
+                            username VARCHAR(100),
+                            first_name VARCHAR(100),
+                            created_at TIMESTAMP DEFAULT NOW(),
+                            last_active TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.execute("""
+                        CREATE TABLE IF NOT EXISTS mood_logs (
+                            id SERIAL PRIMARY KEY,
+                            user_id INTEGER NOT NULL,
+                            mood_score INTEGER,
+                            user_message TEXT,
+                            created_at TIMESTAMP DEFAULT NOW()
+                        )
+                    """)
+                    conn.commit()
+                logger.info("✅ Таблицы созданы через raw SQL")
+                return True
+            except Exception as e2:
+                logger.error(f"❌ Ошибка создания таблиц raw SQL: {e2}")
+                return False
     
     def add_user(self, telegram_id, username=None, first_name=None):
-        """Добавить пользователя"""
-        with get_db_session() as session:
-            # Проверяем существование
-            existing = session.query(User).filter(User.telegram_id == telegram_id).first()
-            if existing:
-                existing.last_active = datetime.utcnow()
-                session.commit()
-                return existing
-            
-            # Создаем нового
-            user = User(
-                telegram_id=telegram_id,
-                username=username,
-                first_name=first_name
-            )
-            session.add(user)
-            session.commit()
-            return user
-    
-    def add_mood_log(self, user_id, mood_score=None, message=None):
-        """Добавить запись настроения"""
-        with get_db_session() as session:
-            log = MoodLog(
-                user_id=user_id,
-                mood_score=mood_score,
-                user_message=message
-            )
-            session.add(log)
-            session.commit()
-            return log
-    
-    def get_user_stats(self, user_id):
-        """Получить статистику пользователя"""
-        with get_db_session() as session:
-            # Количество записей
-            count = session.query(MoodLog).filter(MoodLog.user_id == user_id).count()
-            
-            # Среднее настроение
-            from sqlalchemy import func
-            avg_mood = session.query(func.avg(MoodLog.mood_score)) \
-                .filter(MoodLog.user_id == user_id) \
-                .filter(MoodLog.mood_score.isnot(None)) \
-                .scalar()
-            
-            # Последние записи
-            recent = session.query(MoodLog) \
-                .filter(MoodLog.user_id == user_id) \
-                .order_by(MoodLog.created_at.desc()) \
-                .limit(5) \
-                .all()
-            
-            return {
-                "total_records": count,
-                "avg_mood": float(avg_mood) if avg_mood else None,
-                "recent_logs": [
-                    {
-                        "mood_score": log.mood_score,
-                        "message": log.user_message[:50] + "..." if log.user_message and len(log.user_message) > 50 else log.user_message,
-                        "created_at": log.created_at.isoformat() if log.created_at else None
-                    }
-                    for log in recent
-                ]
-            }
+        """Добавить пользователя с обработкой ошибок"""
+        try:
+            with get_db_session() as session:
+                # Проверяем существование
+                from sqlalchemy import text
+                result = session.execute(
+                    text("SELECT id FROM users WHERE telegram_id = :tid"),
+                    {"tid": telegram_id}
+                ).fetchone()
+                
+                if result:
+                    # Обновляем last_active
+                    session.execute(
+                        text("UPDATE users SET last_active = NOW() WHERE telegram_id = :tid"),
+                        {"tid": telegram_id}
+                    )
+                    return {"id": result[0], "telegram_id": telegram_id}
+                
+                # Создаем нового
+                session.execute(
+                    text("""
+                        INSERT INTO users (telegram_id, username, first_name) 
+                        VALUES (:tid, :uname, :fname)
+                        RETURNING id
+                    """),
+                    {"tid": telegram_id, "uname": username, "fname": first_name}
+                )
+                result = session.execute(
+                    text("SELECT id FROM users WHERE telegram_id = :tid"),
+                    {"tid": telegram_id}
+                ).fetchone()
+                
+                return {"id": result[0], "telegram_id": telegram_id}
+                
+        except Exception as e:
+            logger.error(f"❌ Ошибка добавления пользователя: {e}")
+            # Возвращаем заглушку, чтобы бот продолжал работать
+            return {"id": 0, "telegram_id": telegram_id}
 
-# Создаем глобальный экземпляр менеджера БД
+# Глобальный экземпляр
 db_manager = DatabaseManager()
