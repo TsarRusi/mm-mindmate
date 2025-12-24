@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 MindMate Bot - психологический помощник
-РАБОЧАЯ ВЕРСИЯ ДЛЯ RENDER - БЕЗ ОШИБОК ПРИ СТАРТЕ
+ПОЛНОСТЬЮ РАБОЧАЯ ВЕРСИЯ С КНОПКАМИ И ОФОРМЛЕНИЕМ
 """
 
 import os
@@ -37,7 +37,7 @@ logger.info(f"✅ Токен найден (первые 10 символов): {T
 
 # ============ ИМПОРТЫ С ЗАЩИТОЙ ОТ ОШИБОК ============
 
-# 1. Сначала импортируем Telegram
+# 1. Импортируем Telegram
 try:
     from telegram import Update, ReplyKeyboardMarkup
     from telegram.ext import (
@@ -63,46 +63,56 @@ except Exception as e:
 
 # 3. Импортируем обработчики
 try:
-    # Создаем простые заглушки обработчиков на случай ошибки
-    async def start_stub(update, context):
+    from message_handlers import (
+        start,
+        show_help,
+        handle_text_message,
+        handle_mood_button,
+        handle_ai_chat_button,
+        handle_exercises_button,
+        handle_stats_button,
+        handle_settings_button,
+        handle_back_button,
+        log_mood_command,
+        start_chat,
+        show_stats,
+        handle_crisis_situation,
+        handle_unknown
+    )
+    logger.info("✅ Все обработчики импортированы")
+except ImportError as e:
+    logger.error(f"❌ Ошибка импорта обработчиков: {e}")
+    # Создаем простые заглушки
+    async def start(update, context):
         await update.message.reply_text("✅ MindMate Bot запущен! Используйте /help")
-    
-    async def help_stub(update, context):
+    async def show_help(update, context):
         await update.message.reply_text("Помощь: /start, /help, /mood, /stats, /chat, /crisis")
-    
-    async def text_stub(update, context):
+    async def handle_text_message(update, context):
         await update.message.reply_text(f"Сообщение получено: {update.message.text[:50]}...")
     
-    # Пробуем импортировать настоящие обработчики
-    try:
-        from message_handlers import (
-            start,
-            show_help,
-            handle_text_message,
-            start_chat,
-            log_mood_command,
-            show_stats,
-            handle_crisis_situation,
-            handle_unknown
-        )
-        logger.info("✅ Настоящие обработчики импортированы")
-        USE_REAL_HANDLERS = True
-    except ImportError as e:
-        logger.warning(f"⚠️ Не удалось импортировать обработчики: {e}")
-        logger.warning("⚠️ Используются заглушки обработчиков")
-        start = start_stub
-        show_help = help_stub
-        handle_text_message = text_stub
-        start_chat = start_stub
-        log_mood_command = help_stub
-        show_stats = help_stub
-        handle_crisis_situation = help_stub
-        handle_unknown = help_stub
-        USE_REAL_HANDLERS = False
-    
-except Exception as e:
-    logger.error(f"❌ Ошибка подготовки обработчиков: {e}")
-    sys.exit(1)
+    # Заглушки для обработчиков кнопок
+    async def handle_mood_button(update, context):
+        await update.message.reply_text("📊 Нажмите кнопку настроения или напишите цифру от 1 до 10")
+    async def handle_ai_chat_button(update, context):
+        await update.message.reply_text("💬 Напишите ваш вопрос для ИИ")
+    async def handle_exercises_button(update, context):
+        await update.message.reply_text("🧘 Выберите упражнение для релаксации")
+    async def handle_stats_button(update, context):
+        await update.message.reply_text("📈 Статистика будет доступна после нескольких записей")
+    async def handle_settings_button(update, context):
+        await update.message.reply_text("⚙️ Настройки будут доступны в следующих версиях")
+    async def handle_back_button(update, context):
+        await update.message.reply_text("↩️ Возвращаемся в главное меню")
+    async def log_mood_command(update, context):
+        await update.message.reply_text("Напишите цифру от 1 до 10")
+    async def start_chat(update, context):
+        await update.message.reply_text("💬 Напишите ваш вопрос")
+    async def show_stats(update, context):
+        await update.message.reply_text("📊 Статистика")
+    async def handle_crisis_situation(update, context):
+        await update.message.reply_text("🚨 Телефон доверия: 8-800-2000-122")
+    async def handle_unknown(update, context):
+        await update.message.reply_text("Используйте /help для списка команд")
 
 # 4. Опциональные модули
 try:
@@ -125,7 +135,7 @@ except ImportError:
 # ============ КЛАСС БОТА ============
 
 class MindMateBot:
-    """Бот с защитой от всех ошибок"""
+    """Бот с полной функциональностью и обработкой кнопок"""
     
     def __init__(self):
         self.application = None
@@ -146,31 +156,116 @@ class MindMateBot:
             return False
     
     def setup_handlers(self):
-        """Настройка обработчиков"""
+        """Настройка ВСЕХ обработчиков - КОМАНДЫ И КНОПКИ"""
         logger.info("🔄 Настройка обработчиков...")
         
-        # Базовые команды
+        # ===== КОМАНДЫ =====
+        
+        # /start - главная команда
         self.application.add_handler(CommandHandler("start", start))
+        logger.info("  ✅ Команда /start добавлена")
+        
+        # /help - помощь
         self.application.add_handler(CommandHandler("help", show_help))
+        logger.info("  ✅ Команда /help добавлена")
+        
+        # /crisis - экстренная помощь
         self.application.add_handler(CommandHandler("crisis", handle_crisis_situation))
+        logger.info("  ✅ Команда /crisis добавлена")
+        
+        # /stats - статистика
         self.application.add_handler(CommandHandler("stats", show_stats))
+        logger.info("  ✅ Команда /stats добавлена")
+        
+        # /mood - запись настроения
         self.application.add_handler(CommandHandler("mood", log_mood_command))
+        logger.info("  ✅ Команда /mood добавлена")
+        
+        # /chat и /ai - чат с ИИ
         self.application.add_handler(CommandHandler("chat", start_chat))
         self.application.add_handler(CommandHandler("ai", start_chat))
+        logger.info("  ✅ Команды /chat и /ai добавлены")
         
-        # Текстовые сообщения
+        # ===== ОБРАБОТЧИКИ КНОПОК =====
+        
+        # 📊 Настроение
+        self.application.add_handler(MessageHandler(
+            filters.Regex("^(📊 Настроение|Настроение|Оценить настроение|Мое настроение)$"),
+            handle_mood_button
+        ))
+        logger.info("  ✅ Обработчик кнопки 'Настроение' добавлен")
+        
+        # 💬 Чат с ИИ
+        self.application.add_handler(MessageHandler(
+            filters.Regex("^(💬 Чат с ИИ|Чат с ИИ|Поговорить с ИИ|Общение с ИИ)$"),
+            handle_ai_chat_button
+        ))
+        logger.info("  ✅ Обработчик кнопки 'Чат с ИИ' добавлен")
+        
+        # 🧘 Упражнения
+        self.application.add_handler(MessageHandler(
+            filters.Regex("^(🧘 Упражнения|Упражнения|Релаксация|Медитация)$"),
+            handle_exercises_button
+        ))
+        logger.info("  ✅ Обработчик кнопки 'Упражнения' добавлен")
+        
+        # 📈 Статистика
+        self.application.add_handler(MessageHandler(
+            filters.Regex("^(📈 Статистика|Статистика|Моя статистика|Аналитика)$"),
+            handle_stats_button
+        ))
+        logger.info("  ✅ Обработчик кнопки 'Статистика' добавлен")
+        
+        # ⚙️ Настройки
+        self.application.add_handler(MessageHandler(
+            filters.Regex("^(⚙️ Настройки|Настройки|Настройки бота)$"),
+            handle_settings_button
+        ))
+        logger.info("  ✅ Обработчик кнопки 'Настройки' добавлен")
+        
+        # ↩️ Назад
+        self.application.add_handler(MessageHandler(
+            filters.Regex("^(↩️ Назад в меню|↩️ Назад|Вернуться|Назад в меню|Главное меню)$"),
+            handle_back_button
+        ))
+        logger.info("  ✅ Обработчик кнопки 'Назад' добавлен")
+        
+        # ===== СПЕЦИАЛЬНЫЕ КНОПКИ =====
+        
+        # Оценки настроения (цифры с эмодзи)
+        mood_pattern = r"^(1 😭|2 😢|3 😔|4 😕|5 😐|6 🙂|7 👍|8 😊|9 🤩|10 😍|1|2|3|4|5|6|7|8|9|10)$"
+        self.application.add_handler(MessageHandler(
+            filters.Regex(mood_pattern),
+            handle_text_message  # Будет обработано в основном обработчике
+        ))
+        logger.info("  ✅ Обработчик оценок настроения добавлен")
+        
+        # Упражнения (конкретные)
+        exercises_pattern = r"^(🧘 Дыхание|🌿 Медитация|💪 Релаксация|📝 Благодарность|🎵 Музыка)$"
+        self.application.add_handler(MessageHandler(
+            filters.Regex(exercises_pattern),
+            handle_text_message  # Будет обработано в основном обработчике
+        ))
+        logger.info("  ✅ Обработчик конкретных упражнений добавлен")
+        
+        # ===== ОБЩИЙ ТЕКСТ =====
+        
+        # Обработка обычных текстовых сообщений
         self.application.add_handler(MessageHandler(
             filters.TEXT & ~filters.COMMAND,
             handle_text_message
         ))
+        logger.info("  ✅ Общий обработчик текстовых сообщений добавлен")
         
-        # Неизвестные команды
+        # ===== НЕИЗВЕСТНЫЕ КОМАНДЫ =====
+        
         self.application.add_handler(MessageHandler(
             filters.COMMAND,
             handle_unknown
         ))
+        logger.info("  ✅ Обработчик неизвестных команд добавлен")
         
-        logger.info("✅ Обработчики настроены")
+        logger.info("✅ Все обработчики успешно настроены")
     
     def setup_error_handler(self):
         """Глобальный обработчик ошибок"""
@@ -184,7 +279,9 @@ class MindMateBot:
                 # Отправляем пользователю сообщение
                 if update and update.effective_message:
                     await update.effective_message.reply_text(
-                        "⚠️ Произошла ошибка. Попробуйте еще раз или используйте /start",
+                        "⚠️ *Произошла ошибка.*\n\n"
+                        "Пожалуйста, попробуйте еще раз или используйте /start\n"
+                        "Если ошибка повторяется, свяжитесь с поддержкой.",
                         parse_mode='Markdown'
                     )
             except Exception as e:
@@ -200,15 +297,19 @@ class MindMateBot:
         logger.info("=" * 60)
         
         # Информация о системе
-        logger.info(f"🐍 Python: {sys.version}")
-        logger.info(f"📁 Директория: {os.getcwd()}")
-        logger.info(f"⏰ Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"🐍 Python версия: {sys.version}")
+        logger.info(f"📁 Рабочая директория: {os.getcwd()}")
+        logger.info(f"⏰ Время запуска: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        
+        # Проверка среды
+        is_render = os.environ.get('RENDER') is not None
+        environment = "🌐 Render.com" if is_render else "💻 Локальная разработка"
+        logger.info(f"Среда выполнения: {environment}")
         
         # Проверка модулей
         logger.info(f"📊 База данных: {'✅ Доступна' if hasattr(db_manager, 'init_db') else '⚠️ Заглушка'}")
         logger.info(f"🧠 NLP анализ: {'✅ Доступен' if NLP_AVAILABLE else '⚠️ Недоступен'}")
         logger.info(f"🤖 DeepSeek AI: {'✅ Доступен' if DEEPSEEK_AVAILABLE else '⚠️ Недоступен'}")
-        logger.info(f"🎮 Обработчики: {'✅ Настоящие' if USE_REAL_HANDLERS else '⚠️ Заглушки'}")
         
         # Инициализация БД
         await self.init_database()
@@ -225,11 +326,6 @@ class MindMateBot:
     def run(self):
         """Запуск бота"""
         try:
-            # Проверяем среду
-            is_render = os.environ.get('RENDER') is not None
-            environment = "🌐 Render.com" if is_render else "💻 Локальная разработка"
-            logger.info(f"Среда выполнения: {environment}")
-            
             # Создаем приложение
             logger.info("🛠️ Создание Application...")
             self.application = Application.builder().token(TOKEN).build()
