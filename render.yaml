@@ -1,6 +1,5 @@
 services:
-  # Бот должен быть Background Worker, НЕ Web Service!
-  - type: worker  # ⚠️ ИЗМЕНИТЬ с 'web' на 'worker'!
+  - type: worker
     name: mindmate-bot
     runtime: python
     plan: free
@@ -11,14 +10,12 @@ services:
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
-      python -m nltk.downloader punkt
-      python -m nltk.downloader stopwords
-      python -m nltk.downloader averaged_perceptron_tagger_ru
+      python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
     
-    # Запуск - ТОЛЬКО бот
+    # Запуск
     startCommand: python bot.py
     
-    # Переменные окружения
+    # 🔥 ВАЖНО: Добавьте DATABASE_URL здесь!
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.18
@@ -28,11 +25,13 @@ services:
         sync: false
       - key: DEEPSEEK_API_KEY
         sync: false
-    
-    # НЕ нужно для worker:
-    # healthCheckPath: /health
-    # initialDelaySeconds: 30
+      # ⚠️ Render создаст эту переменную автоматически:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mindmate-db
+          property: connectionString
 
+# 🔥 ВАЖНО: База данных ДОЛЖНА быть здесь:
 databases:
   - name: mindmate-db
     plan: free
