@@ -1,29 +1,18 @@
-# === ОСНОВНЫЕ ЗАВИСИМОСТИ БОТА ===
 python-telegram-bot[job-queue]==20.7
 python-dotenv==1.0.0
 schedule==1.2.0
-
-# === БАЗА ДАННЫХ ===
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 alembic==1.13.1
-
-# === DEEPSEEK API ===
 requests==2.31.0
 aiohttp==3.9.1
 httpx>=0.25.2
-
-# === УТИЛИТЫ ===
 emoji==2.10.0
 pytz==2023.3.post1
 python-dateutil==2.8.2
 pydantic==2.5.2
-pydantic-settings==2.1.0  # ⭐ ДОБАВЬТЕ ЭТУ СТРОЧКУ!
+pydantic-settings==2.1.0  # ⚠️ ЭТА СТРОКА ДОЛЖНА БЫТЬ!
 loguru==0.7.2
-
-# === ЛЕГКИЙ NLP ===
 textblob==0.18.0
 nltk==3.8.1
-
-# === ДЕПЛОЙ ===
 gunicorn==21.2.0
