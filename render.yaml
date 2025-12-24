@@ -1,5 +1,6 @@
 services:
-  - type: web
+  # Бот должен быть Background Worker, НЕ Web Service!
+  - type: worker  # ⚠️ ИЗМЕНИТЬ с 'web' на 'worker'!
     name: mindmate-bot
     runtime: python
     plan: free
@@ -12,8 +13,9 @@ services:
       pip install -r requirements.txt
       python -m nltk.downloader punkt
       python -m nltk.downloader stopwords
+      python -m nltk.downloader averaged_perceptron_tagger_ru
     
-    # Запуск
+    # Запуск - ТОЛЬКО бот
     startCommand: python bot.py
     
     # Переменные окружения
@@ -23,21 +25,16 @@ services:
       - key: RENDER
         value: true
       - key: TELEGRAM_BOT_TOKEN
-        sync: false  # Зададите в Dashboard
+        sync: false
       - key: DEEPSEEK_API_KEY
-        sync: false  # Зададите в Dashboard
-      - key: DATABASE_URL
-        fromDatabase:
-          name: mindmate-db
-          property: connectionString
+        sync: false
     
-    # Health check
-    healthCheckPath: /health
-    initialDelaySeconds: 30
+    # НЕ нужно для worker:
+    # healthCheckPath: /health
+    # initialDelaySeconds: 30
 
 databases:
   - name: mindmate-db
     plan: free
     databaseName: mindmate
     user: mindmate_user
-    ipAllowList: []  # разрешает все IP
